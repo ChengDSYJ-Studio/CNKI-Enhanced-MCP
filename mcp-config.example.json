@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "cnki": {
+      "command": "/ABSOLUTE/PATH/TO/CNKI-Enhanced-MCP/.venv/bin/cnki-enhanced-mcp",
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "/ABSOLUTE/PATH/TO/CNKI-Enhanced-MCP/.playwright-browsers",
+        "CNKI_MCP_DATA_DIR": "/ABSOLUTE/PATH/TO/CNKI-Enhanced-MCP/.cnki-data"
+      }
+    }
+  }
+}
