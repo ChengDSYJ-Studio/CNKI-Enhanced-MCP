@@ -1,0 +1,13 @@
+interface:
+  display_name: "CNKI 深度研究"
+  short_description: "使用知网检索、正文证据与题录，生成可追溯的深度调研报告"
+  default_prompt: "Use $cnki-deep-research to conduct an evidence-grounded CNKI literature review and write a structured research report."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "cnki"
+      description: "Local CNKI search, metadata, authorized HTML reading, citation, and login tools"
+
+policy:
+  allow_implicit_invocation: true

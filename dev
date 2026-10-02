@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+CNKI_DEV_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+export PATH="$CNKI_DEV_ROOT/.tools/go/bin:$PATH"
+export GOPATH="$CNKI_DEV_ROOT/.cache/gopath"
+export GOMODCACHE="$CNKI_DEV_ROOT/.cache/modules"
+export GOCACHE="$CNKI_DEV_ROOT/.cache/build"
+export GOTMPDIR="$CNKI_DEV_ROOT/.tmp"
+export GOTOOLCHAIN=local
+mkdir -p "$GOPATH" "$GOMODCACHE" "$GOCACHE" "$GOTMPDIR"
+cd "$CNKI_DEV_ROOT"
+exec "$@"

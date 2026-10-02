@@ -1,0 +1,201 @@
+{
+  "papers": [
+    {
+      "record_ref": "journal",
+      "title": "题名{A}\u0026B_测试",
+      "authors": [
+        "作者甲",
+        "团体作者"
+      ],
+      "source": "测试刊物",
+      "year": 2025,
+      "document_type": "期刊",
+      "doi": "10.1234/a",
+      "url": "https://example.test/paper",
+      "abstract": "摘要",
+      "keywords": [
+        "甲",
+        "乙"
+      ],
+      "volume": "3",
+      "issue": "2",
+      "pages": "10-20",
+      "field_status": null
+    },
+    {
+      "record_ref": "thesis",
+      "title": "学位题名",
+      "authors": [
+        "作者乙"
+      ],
+      "source": "测试大学",
+      "year": 2024,
+      "document_type": "博士",
+      "field_status": null
+    },
+    {
+      "record_ref": "unknown",
+      "title": "=未知来源",
+      "authors": null,
+      "field_status": null
+    }
+  ],
+  "results": {
+    "apa": {
+      "format": "apa",
+      "text": "作者甲, 团体作者. (2025). 题名{A}\u0026B_测试. 测试刊物, 3(2): 10-20.\n\n作者乙. (2024). 学位题名. 测试大学.\n\n[作者未取得]. ([年份未取得]). =未知来源. [来源未取得].",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "bibtex": {
+      "format": "bibtex",
+      "text": "@article{journal,\n  author = {{作者甲} and {团体作者}},\n  title = {题名\\{A\\}\\\u0026B\\_测试},\n  year = {2025},\n  volume = {3},\n  number = {2},\n  pages = {10-20},\n  abstract = {摘要},\n  keywords = {甲; 乙},\n  doi = {10.1234/a},\n  url = {https://example.test/paper},\n  journal = {测试刊物},\n}\n\n@phdthesis{thesis,\n  author = {{作者乙}},\n  title = {学位题名},\n  year = {2024},\n  school = {测试大学},\n}\n\n@misc{unknown,\n  title = {=未知来源},\n}",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "chicago": {
+      "format": "chicago",
+      "text": "作者甲, 团体作者. “题名{A}\u0026B_测试.” 测试刊物 (2025): 3(2): 10-20.\n\n作者乙. “学位题名.” 测试大学 (2024).\n\n[作者未取得]. “=未知来源.” [来源未取得] ([年份未取得]).",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "csl_json": {
+      "format": "csl_json",
+      "text": "[\n  {\n    \"DOI\": \"10.1234/a\",\n    \"URL\": \"https://example.test/paper\",\n    \"abstract\": \"摘要\",\n    \"author\": [\n      {\n        \"literal\": \"作者甲\"\n      },\n      {\n        \"literal\": \"团体作者\"\n      }\n    ],\n    \"container-title\": \"测试刊物\",\n    \"id\": \"journal\",\n    \"issue\": \"2\",\n    \"issued\": {\n      \"date-parts\": [\n        [\n          2025\n        ]\n      ]\n    },\n    \"page\": \"10-20\",\n    \"title\": \"题名{A}\\u0026B_测试\",\n    \"type\": \"article-journal\",\n    \"volume\": \"3\"\n  },\n  {\n    \"author\": [\n      {\n        \"literal\": \"作者乙\"\n      }\n    ],\n    \"container-title\": \"测试大学\",\n    \"id\": \"thesis\",\n    \"issued\": {\n      \"date-parts\": [\n        [\n          2024\n        ]\n      ]\n    },\n    \"title\": \"学位题名\",\n    \"type\": \"thesis\"\n  },\n  {\n    \"id\": \"unknown\",\n    \"title\": \"=未知来源\",\n    \"type\": \"document\"\n  }\n]",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "csv": {
+      "format": "csv",
+      "text": "title,authors,source,year,volume,issue,pages,doi,url\r\n题名{A}\u0026B_测试,作者甲; 团体作者,测试刊物,2025,3,2,10-20,10.1234/a,https://example.test/paper\r\n学位题名,作者乙,测试大学,2024,,,,,\r\n'=未知来源,,,,,,,,\r\n",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "custom": {
+      "format": "custom",
+      "text": "作者甲, 团体作者: 题名{A}\u0026B_测试 (2025)\n\n作者乙: 学位题名 (2024)\n\n[作者未取得]: =未知来源 ()",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "endnote": {
+      "format": "endnote",
+      "text": "%0 Journal Article\n%T 题名{A}\u0026B_测试\n%A 作者甲\n%A 团体作者\n%J 测试刊物\n%D 2025\n%V 3\n%N 2\n%P 10-20\n%R 10.1234/a\n%U https://example.test/paper\n%X 摘要\n%K 甲\n%K 乙\n\n%0 Thesis\n%T 学位题名\n%A 作者乙\n%J 测试大学\n%D 2024\n\n%0 Generic\n%T =未知来源",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "gbt7714": {
+      "format": "gbt7714",
+      "text": "[1] 作者甲, 团体作者. 题名{A}\u0026B_测试[J]. 测试刊物, 2025, 3(2): 10-20.\n\n[2] 作者乙. 学位题名[D]. 测试大学, 2024.\n\n[3] [作者未取得]. =未知来源[Z]. [来源未取得], [年份未取得].",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "json": {
+      "format": "json",
+      "text": "[\n  {\n    \"record_ref\": \"journal\",\n    \"title\": \"题名{A}\\u0026B_测试\",\n    \"authors\": [\n      \"作者甲\",\n      \"团体作者\"\n    ],\n    \"source\": \"测试刊物\",\n    \"year\": 2025,\n    \"document_type\": \"期刊\",\n    \"doi\": \"10.1234/a\",\n    \"public_url\": \"https://example.test/paper\",\n    \"abstract\": \"摘要\",\n    \"keywords\": [\n      \"甲\",\n      \"乙\"\n    ],\n    \"volume\": \"3\",\n    \"issue\": \"2\",\n    \"pages\": \"10-20\",\n    \"field_status\": null\n  },\n  {\n    \"record_ref\": \"thesis\",\n    \"title\": \"学位题名\",\n    \"authors\": [\n      \"作者乙\"\n    ],\n    \"source\": \"测试大学\",\n    \"year\": 2024,\n    \"document_type\": \"博士\",\n    \"field_status\": null\n  },\n  {\n    \"record_ref\": \"unknown\",\n    \"title\": \"=未知来源\",\n    \"authors\": null,\n    \"field_status\": null\n  }\n]",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "markdown": {
+      "format": "markdown",
+      "text": "- [题名{A}\u0026B_测试](https://example.test/paper)\n\n- 学位题名\n\n- =未知来源",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "mla": {
+      "format": "mla",
+      "text": "作者甲, 团体作者. “题名{A}\u0026B_测试.” 测试刊物, 2025, 3(2): 10-20.\n\n作者乙. “学位题名.” 测试大学, 2024.\n\n[作者未取得]. “=未知来源.” [来源未取得], [年份未取得].",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "ris": {
+      "format": "ris",
+      "text": "TY  - JOUR\nTI  - 题名{A}\u0026B_测试\nAU  - 作者甲\nAU  - 团体作者\nJO  - 测试刊物\nPY  - 2025\nVL  - 3\nIS  - 2\nSP  - 10\nEP  - 20\nDO  - 10.1234/a\nUR  - https://example.test/paper\nAB  - 摘要\nKW  - 甲\nKW  - 乙\nER  -\n\nTY  - THES\nTI  - 学位题名\nAU  - 作者乙\nJO  - 测试大学\nPY  - 2024\nER  -\n\nTY  - GEN\nTI  - =未知来源\nER  -",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    },
+    "vancouver": {
+      "format": "vancouver",
+      "text": "1. 作者甲, 团体作者. 题名{A}\u0026B_测试. 测试刊物. 2025;3(2): 10-20.\n\n2. 作者乙. 学位题名. 测试大学. 2024.\n\n3. [作者未取得]. =未知来源. [来源未取得]. [年份未取得].",
+      "count": 3,
+      "missing_fields": {
+        "unknown": [
+          "authors",
+          "source",
+          "year"
+        ]
+      }
+    }
+  }
+}
