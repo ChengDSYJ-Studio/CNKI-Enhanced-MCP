@@ -1,17 +1,17 @@
 ---
 name: cnki-deep-research
-description: Conduct evidence-grounded deep research with CNKI MCP (2.0 or compatible) and produce a structured literature review or research report. Use when a user asks for CNKI/知网深度研究、调研报告、文献综述、研究现状、研究进展、学术争议、主题脉络、证据梳理, or an English-language literature investigation that should rely on Chinese academic sources. Trigger for both explicit `$cnki-deep-research` use and natural requests such as “帮我深度研究这个主题”.
+description: Conduct evidence-grounded deep research with CNKI Enhanced MCP (2.0 or compatible) and produce a structured literature review or research report. Use when a user asks for CNKI/知网深度研究、调研报告、文献综述、研究现状、研究进展、学术争议、主题脉络、证据梳理, or an English-language literature investigation that should rely on Chinese academic sources. Trigger for both explicit `$cnki-deep-research` use and natural requests such as “帮我深度研究这个主题”.
 ---
 
 # CNKI Deep Research
 
-Use CNKI MCP (2.0 or compatible) as the literature retrieval and evidence layer. Produce a reasoned report, not a search-result dump.
+Use CNKI Enhanced MCP (2.0 or compatible) as the literature retrieval and evidence layer. Produce a reasoned report, not a search-result dump.
 
 ## Keep the workflow portable
 
 - Depend only on MCP tool capabilities, not local paths, operating-system commands, browser executables, or a specific agent vendor.
 - Resolve namespaced variants by terminal tool name. For example, treat `mcp__cnki__search` as `search`; inspect the actual tools/list schema before calling a legacy server.
-- Require CNKI MCP (2.0 or compatible) or compatible tools. If they are unavailable, state the missing dependency and stop; do not pretend to have searched CNKI.
+- Require CNKI Enhanced MCP (2.0 or compatible) or compatible tools. If they are unavailable, state the missing dependency and stop; do not pretend to have searched CNKI.
 - Use exact paper titles or public `record_ref` values returned by the tool. For same-title records, disambiguate by author and source, then use `record_ref`. Never invent internal database IDs.
 - Keep account credentials in the visible login browser. Never ask the user to paste a password, cookie, token, or institutional credential into chat or tool parameters.
 

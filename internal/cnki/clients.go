@@ -155,7 +155,7 @@ func ConfigText(id, binary, root string) (string, error) {
 	case "toml":
 		return "[mcp_servers.cnki]\ncommand = " + quote(binary) + "\nargs = [\"serve\"]\nstartup_timeout_sec = 30\ntool_timeout_sec = 900\n\n[mcp_servers.cnki.env]\nCNKI_DATA_DIR = " + quote(root) + "\n", nil
 	case "dsh":
-		return "# CNKI Research MCP\n- insert:\n    - id: mcp-cnki\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: cnki\n        transport: stdio\n        command: " + quote(binary) + "\n        args: [\"serve\"]\n        env: " + quote(env) + "\n        toolCallTimeoutMs: 900000\n        failOnStartupError: false\n", nil
+		return "# CNKI Enhanced MCP\n- insert:\n    - id: mcp-cnki\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: cnki\n        transport: stdio\n        command: " + quote(binary) + "\n        args: [\"serve\"]\n        env: " + quote(env) + "\n        toolCallTimeoutMs: 900000\n        failOnStartupError: false\n", nil
 	}
 	data, err := json.MarshalIndent(nest(c.key(), map[string]any{"cnki": c.entry(binary, root)}), "", "  ")
 	return string(data) + "\n", err

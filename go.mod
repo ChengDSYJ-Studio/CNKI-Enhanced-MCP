@@ -1,4 +1,4 @@
-module github.com/ChengDSYJ-Studio/cnki-mcp
+module github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP
 
 go 1.27.0
 

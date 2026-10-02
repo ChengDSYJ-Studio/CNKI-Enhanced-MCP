@@ -1,6 +1,6 @@
 <div align="center">
 
-![CNKI Research MCP](docs/banner.en.svg)
+![CNKI Enhanced MCP](docs/banner.en.svg)
 
 [![Version](https://img.shields.io/badge/version-2.0.0-1d5fd1?style=flat-square)](CHANGELOG.md)
 [![Go](https://img.shields.io/badge/Go-1.27-1d5fd1?style=flat-square&logo=go&logoColor=white)](go.mod)
@@ -17,7 +17,7 @@
 
 ---
 
-CNKI Research MCP is a local [MCP](https://modelcontextprotocol.io) server for CNKI (China National Knowledge Infrastructure). Once connected to a client such as Claude, Codex or Cursor, it lets you search CNKI in natural language, retrieve bibliographic records and journal information, read HTML full text, download PDF/CAJ files and export references.
+CNKI Enhanced MCP is a local [MCP](https://modelcontextprotocol.io) server for CNKI (China National Knowledge Infrastructure). Once connected to a client such as Claude, Codex or Cursor, it lets you search CNKI in natural language, retrieve bibliographic records and journal information, read HTML full text, download PDF/CAJ files and export references.
 
 The server accesses CNKI through a dedicated local browser and uses your own personal or institutional login. Credentials are entered only in the browser and never pass through MCP. When CNKI shows a verification or login page, that page is opened for you to handle, and the task continues afterwards.
 
@@ -35,7 +35,7 @@ The server accesses CNKI through a dedicated local browser and uses your own per
 
 ### 1. Download
 
-Download the archive for your platform from [Releases](../../releases) and extract it to a permanent folder:
+Download the archive for your platform from [Releases](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases) and extract it to a permanent folder:
 
 | System | Package | Setup |
 | --- | --- | --- |
@@ -731,6 +731,12 @@ data/
 | Verification pages appear often | Increase `CNKI_REQUEST_INTERVAL_MS` or decrease `CNKI_MAX_INFLIGHT` |
 
 ## Development
+
+To install from source (requires Go 1.27):
+
+```sh
+go install github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/cmd/cnki-mcp@latest
+```
 
 ```sh
 go test -race ./...

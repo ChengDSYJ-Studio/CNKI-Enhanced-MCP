@@ -1,4 +1,4 @@
-# CNKI MCP 2.0 工具契约
+# CNKI Enhanced MCP 2.0 工具契约
 
 以运行程序的 `cnki-mcp schema` 输出为准（发布包中的 `docs/tool-schema.json` 由真实 MCP 服务导出）。工具名前可能有客户端命名空间，以最终名称为准。
 

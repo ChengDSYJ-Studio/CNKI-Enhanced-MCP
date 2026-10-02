@@ -1,6 +1,6 @@
 <div align="center">
 
-![CNKI Research MCP](docs/banner.svg)
+![CNKI Enhanced MCP](docs/banner.svg)
 
 [![Version](https://img.shields.io/badge/version-2.0.0-1d5fd1?style=flat-square)](CHANGELOG.md)
 [![Go](https://img.shields.io/badge/Go-1.27-1d5fd1?style=flat-square&logo=go&logoColor=white)](go.mod)
@@ -17,7 +17,7 @@
 
 ---
 
-CNKI Research MCP 是一个在本机运行的知网 [MCP](https://modelcontextprotocol.io) 服务。接入 Claude、Codex、Cursor 等客户端后，可以用自然语言检索知网文献、获取题录与期刊来源信息、阅读 HTML 正文、下载 PDF/CAJ，并导出参考文献。
+CNKI Enhanced MCP 是一个在本机运行的知网 [MCP](https://modelcontextprotocol.io) 服务。接入 Claude、Codex、Cursor 等客户端后，可以用自然语言检索知网文献、获取题录与期刊来源信息、阅读 HTML 正文、下载 PDF/CAJ，并导出参考文献。
 
 服务通过一个专用的本地浏览器访问知网，使用你自己的个人或机构登录，账号密码只在浏览器中输入，不经过 MCP。遇到验证码或登录页面时，会弹出原页面由你处理，处理完成后任务继续执行。
 
@@ -35,7 +35,7 @@ CNKI Research MCP 是一个在本机运行的知网 [MCP](https://modelcontextpr
 
 ### 1. 下载
 
-从 [Releases](../../releases) 下载对应平台的压缩包，解压到一个固定目录：
+从 [Releases](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases) 下载对应平台的压缩包，解压到一个固定目录：
 
 | 系统 | 运行包 | 设置方式 |
 | --- | --- | --- |
@@ -731,6 +731,12 @@ data/
 | 频繁出现验证码 | 调大 `CNKI_REQUEST_INTERVAL_MS` 或调小 `CNKI_MAX_INFLIGHT` |
 
 ## 开发
+
+直接从源码安装（需要 Go 1.27）：
+
+```sh
+go install github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/cmd/cnki-mcp@latest
+```
 
 ```sh
 go test -race ./...

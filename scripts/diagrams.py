@@ -25,13 +25,13 @@ def banner(sub, font, label):
 <path d="M67 74h58c21 0 32 11 32 26v105c-7-13-21-19-39-19H67zM157 100c0-15 11-26 32-26h58v112h-51c-18 0-32 6-39 19z" fill="none" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
 <path d="M87 101h40M87 119h40M87 137h26" stroke="#8cc8ff" stroke-width="3" stroke-linecap="round"/>
 <circle cx="213" cy="143" r="29" fill="#123f8c" stroke="#ffffff" stroke-width="4"/><path d="m234 164 28 28" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
-<text x="310" y="108" fill="#ffffff" font-family="{EN}" font-size="49" font-weight="700">CNKI Research MCP</text>
+<text x="310" y="108" fill="#ffffff" font-family="{EN}" font-size="49" font-weight="700">CNKI Enhanced MCP</text>
 <text x="312" y="155" fill="#dbe8ff" font-family="{font}" font-size="23">{esc(sub)}</text>
 <text x="313" y="205" fill="#8cc8ff" font-family="{EN}" font-size="14" letter-spacing="3">DEEP SEARCH · LOCAL SESSION · TRACEABLE EVIDENCE</text>
 </svg>
 """
-open(os.path.join(OUT, "banner.svg"), "w").write(banner("让 AI 完成知网文献检索、阅读与整理", ZH, "CNKI Research MCP，让 AI 完成知网文献检索、阅读与整理"))
-open(os.path.join(OUT, "banner.en.svg"), "w").write(banner("Let AI search, read and organize CNKI literature", EN, "CNKI Research MCP: let AI search, read and organize CNKI literature"))
+open(os.path.join(OUT, "banner.svg"), "w").write(banner("让 AI 完成知网文献检索、阅读与整理", ZH, "CNKI Enhanced MCP，让 AI 完成知网文献检索、阅读与整理"))
+open(os.path.join(OUT, "banner.en.svg"), "w").write(banner("Let AI search, read and organize CNKI literature", EN, "CNKI Enhanced MCP: let AI search, read and organize CNKI literature"))
 
 # ---------- architecture ----------
 def architecture(L):
@@ -82,14 +82,14 @@ def architecture(L):
     b.append(text(1000, 706, L["cnki_sub"], 14, SUB, font=f))
     return svg(W, 750, L["label"], "".join(b))
 
-ARCH_ZH = dict(zh=True, label="CNKI Research MCP 架构", client="MCP 客户端", client_sub="Claude、Codex、Cursor、VS Code、Gemini CLI 等（本地 stdio）",
+ARCH_ZH = dict(zh=True, label="CNKI Enhanced MCP 架构", client="MCP 客户端", client_sub="Claude、Codex、Cursor、VS Code、Gemini CLI 等（本地 stdio）",
     server="MCP 服务（13 个工具）", jobs="任务管理", jobs_sub=["后台任务、进度查询", "预算、检查点、继续执行"],
     research="检索流程", research_sub=["多字段检索、读取详情", "补充检索、排序筛选"],
     store="本地存储", store_sub=["题录、期刊信息、检索结果", "定期写入 research.json"],
     site="站点访问", site_sub="检索请求、页面解析、页面渲染、新标签页跟踪、HTML 阅读、文件下载",
     limiter="请求限速", limiter_sub="所有请求按间隔发起（默认每秒 2 次），人工验证期间暂停",
     browser="专用浏览器（Chrome / Edge / Chromium）", browser_sub="保存登录状态，后台最小化运行", cnki="中国知网", cnki_sub="kns.cnki.net、navi.cnki.net、bar.cnki.net")
-ARCH_EN = dict(zh=False, label="CNKI Research MCP architecture", client="MCP client", client_sub="Claude, Codex, Cursor, VS Code, Gemini CLI and others (local stdio)",
+ARCH_EN = dict(zh=False, label="CNKI Enhanced MCP architecture", client="MCP client", client_sub="Claude, Codex, Cursor, VS Code, Gemini CLI and others (local stdio)",
     server="MCP server (13 tools)", jobs="Operations", jobs_sub=["background tasks, progress", "budgets, checkpoints, continue"],
     research="Search workflow", research_sub=["field searches, detail pages", "follow-up search, ranking"],
     store="Local store", store_sub=["records, journals, results", "saved to research.json"],

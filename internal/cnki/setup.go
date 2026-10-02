@@ -90,7 +90,7 @@ func Setup(ctx context.Context, binary, root string, args []string, in io.Reader
 		return ""
 	}
 	interactive := len(args) == 0
-	fmt.Fprintln(out, "CNKI MCP 安装设置（无需 Python、Node 或 Go）")
+	fmt.Fprintln(out, "CNKI Enhanced MCP 安装设置（无需 Python、Node 或 Go）")
 	if browser == "" {
 		paths := BrowserCandidates()
 		if len(paths) > 0 {

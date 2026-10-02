@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ChengDSYJ-Studio/cnki-mcp/internal/cnki"
+	"github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/internal/cnki"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

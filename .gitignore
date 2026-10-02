@@ -1,0 +1,11 @@
+.tools/
+.cache/
+.tmp/
+.data/
+artifacts/
+dist/
+*.test
+.DS_Store
+.runtime/
+data/
+__pycache__/
