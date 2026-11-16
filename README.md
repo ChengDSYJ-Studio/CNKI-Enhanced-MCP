@@ -39,15 +39,17 @@ CNKI Enhanced MCP 是一个在本机运行的中国知网（CNKI）[MCP](https:/
 
 从 [Releases](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases) 下载对应平台的压缩包，解压到一个固定目录（例如 `~/Applications/CNKI-MCP`）。客户端配置里记录的是程序路径，设置完成后不要再移动这个文件夹。
 
+[发布版本 v2.1.0](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/tag/v2.1.0) · [源码包](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-source.zip) · [SHA-256 校验](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/SHA256SUMS)
+
 | 系统 | 运行包 | 设置方式 |
 | --- | --- | --- |
-| macOS（Apple 芯片） | `CNKI-Enhanced-MCP-2.1.0-macOS-arm64.zip` | 双击 `安装设置.command` |
-| macOS（Intel） | `CNKI-Enhanced-MCP-2.1.0-macOS-x64.zip` | 双击 `安装设置.command` |
-| Windows 64 位 | `CNKI-Enhanced-MCP-2.1.0-Windows-x64.zip` | 双击 `安装设置.cmd` |
-| Linux x64 | `CNKI-Enhanced-MCP-2.1.0-Linux-x64.zip` | 运行 `./安装设置.sh` |
-| Linux arm64 | `CNKI-Enhanced-MCP-2.1.0-Linux-arm64.zip` | 运行 `./安装设置.sh` |
+| macOS（Apple 芯片） | [CNKI-Enhanced-MCP-2.1.0-macOS-arm64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-macOS-arm64.zip) | 双击 `安装设置.command` |
+| macOS（Intel） | [CNKI-Enhanced-MCP-2.1.0-macOS-x64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-macOS-x64.zip) | 双击 `安装设置.command` |
+| Windows 64 位 | [CNKI-Enhanced-MCP-2.1.0-Windows-x64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-Windows-x64.zip) | 双击 `安装设置.cmd` |
+| Linux x64 | [CNKI-Enhanced-MCP-2.1.0-Linux-x64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-Linux-x64.zip) | 运行 `./安装设置.sh` |
+| Linux arm64 | [CNKI-Enhanced-MCP-2.1.0-Linux-arm64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-Linux-arm64.zip) | 运行 `./安装设置.sh` |
 
-源码包为 `CNKI-Enhanced-MCP-2.1.0-source.zip`。
+源码包为 [CNKI-Enhanced-MCP-2.1.0-source.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-source.zip)。
 
 运行需要本机已安装 Chrome、Edge 或 Chromium；登录和验证需要图形界面。程序是单个可执行文件，不需要 Python、Node.js 或另外下载浏览器。运行包不含登录状态或任何论文数据。
 

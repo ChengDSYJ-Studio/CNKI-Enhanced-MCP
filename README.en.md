@@ -39,15 +39,17 @@ The server reaches CNKI through a dedicated local browser (Chrome, Edge or Chrom
 
 Download the archive for your platform from [Releases](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases) and extract it to a permanent folder (for example `~/Applications/CNKI-MCP`). Client configurations record the program path, so do not move the folder after setup.
 
+[Release v2.1.0](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/tag/v2.1.0) · [Source package](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-source.zip) · [SHA-256 checksums](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/SHA256SUMS)
+
 | System | Package | Setup |
 | --- | --- | --- |
-| macOS (Apple silicon) | `CNKI-Enhanced-MCP-2.1.0-macOS-arm64.zip` | double-click `安装设置.command` |
-| macOS (Intel) | `CNKI-Enhanced-MCP-2.1.0-macOS-x64.zip` | double-click `安装设置.command` |
-| Windows 64-bit | `CNKI-Enhanced-MCP-2.1.0-Windows-x64.zip` | double-click `安装设置.cmd` |
-| Linux x64 | `CNKI-Enhanced-MCP-2.1.0-Linux-x64.zip` | run `./安装设置.sh` |
-| Linux arm64 | `CNKI-Enhanced-MCP-2.1.0-Linux-arm64.zip` | run `./安装设置.sh` |
+| macOS (Apple silicon) | [CNKI-Enhanced-MCP-2.1.0-macOS-arm64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-macOS-arm64.zip) | double-click `安装设置.command` |
+| macOS (Intel) | [CNKI-Enhanced-MCP-2.1.0-macOS-x64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-macOS-x64.zip) | double-click `安装设置.command` |
+| Windows 64-bit | [CNKI-Enhanced-MCP-2.1.0-Windows-x64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-Windows-x64.zip) | double-click `安装设置.cmd` |
+| Linux x64 | [CNKI-Enhanced-MCP-2.1.0-Linux-x64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-Linux-x64.zip) | run `./安装设置.sh` |
+| Linux arm64 | [CNKI-Enhanced-MCP-2.1.0-Linux-arm64.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-Linux-arm64.zip) | run `./安装设置.sh` |
 
-The source package is `CNKI-Enhanced-MCP-2.1.0-source.zip`.
+The source package is [CNKI-Enhanced-MCP-2.1.0-source.zip](https://github.com/ChengDSYJ-Studio/CNKI-Enhanced-MCP/releases/download/v2.1.0/CNKI-Enhanced-MCP-2.1.0-source.zip).
 
 Chrome, Edge or Chromium must be installed; login and verification need a desktop session. The program is a single executable and needs no Python, Node.js or separately downloaded browser. Packages contain no login state and no paper data.
 
