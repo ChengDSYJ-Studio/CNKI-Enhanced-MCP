@@ -3,7 +3,7 @@
   "_meta": {
     "io.modelcontextprotocol/serverInfo": {
       "name": "cnki",
-      "version": "2.0.0"
+      "version": "2.1.0"
     }
   },
   "ttlMs": 0,
@@ -13,32 +13,19 @@
       "annotations": {
         "destructiveHint": false,
         "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "本地检查安装、配置、数据量与当前任务，不启动浏览器。",
-      "inputSchema": {
-        "additionalProperties": false,
-        "type": "object"
-      },
-      "name": "diagnostics"
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
         "openWorldHint": true,
         "readOnlyHint": false
       },
-      "description": "用户明确需要文件时下载 PDF/CAJ。点击前登记，结果未知的点击不会自动重放。",
+      "description": "Download the PDF/CAJ into data/downloads/, only when the user wants the file. An unknown outcome is never clicked again without retry=true.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "filename": {
+            "description": "a basename; never overwrites",
             "type": "string"
           },
           "format": {
-            "description": "auto（默认，优先 PDF）、pdf、caj",
+            "description": "default auto (PDF first)",
             "enum": [
               "auto",
               "pdf",
@@ -47,7 +34,6 @@
             "type": "string"
           },
           "on_verification": {
-            "description": "ask（默认）或 skip",
             "enum": [
               "ask",
               "skip"
@@ -58,43 +44,43 @@
             "type": "string"
           },
           "retry": {
-            "description": "上次下载点击结果未知时，确认允许再次点击",
+            "description": "click again after an unknown outcome",
             "type": "boolean"
           },
           "subdirectory": {
-            "description": "数据目录 downloads/ 下的子目录",
+            "description": "folder under data/downloads/",
             "type": "string"
           },
           "title": {
-            "description": "完整题名（与 record_ref 二选一）",
+            "description": "exact full title instead of record_ref",
             "type": "string"
           },
           "wait_seconds": {
-            "description": "等待传输完成的秒数，默认 120",
+            "description": "default 120",
             "type": "integer"
           }
         },
         "type": "object"
       },
-      "name": "download_paper"
+      "name": "download"
     },
     {
       "annotations": {
         "destructiveHint": false,
         "idempotentHint": false,
-        "openWorldHint": true,
+        "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "导出 13 种引文格式，缺失字段明确报告；filename 可保存为文件。",
+      "description": "Citations of stored records in 13 formats; missing_fields names gaps.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "filename": {
-            "description": "保存到数据目录 exports/ 下的文件名；不覆盖",
+            "description": "save under data/exports/",
             "type": "string"
           },
           "format": {
-            "description": "gbt7714（默认）、apa、mla、chicago、vancouver、bibtex、ris、endnote、csl_json、json、csv、markdown、custom",
+            "description": "default gbt7714",
             "enum": [
               "gbt7714",
               "apa",
@@ -122,16 +108,22 @@
             ]
           },
           "scope": {
+            "enum": [
+              "selected",
+              "eligible",
+              "candidates"
+            ],
             "type": "string"
           },
           "search_id": {
             "type": "string"
           },
           "template": {
-            "description": "custom 格式的模板，如 {authors}. {title}[J]. {journal}, {year}",
+            "description": "for custom: {authors}. {title}[J]. {journal}, {year}",
             "type": "string"
           },
           "titles": {
+            "description": "exact full titles",
             "items": {
               "type": "string"
             },
@@ -143,7 +135,7 @@
         },
         "type": "object"
       },
-      "name": "export_citations"
+      "name": "export"
     },
     {
       "annotations": {
@@ -152,12 +144,12 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "按 record_refs、完整题名或 search_id 批量取得完整题录（摘要、关键词、DOI、机构、基金等），可附带期刊质量。",
+      "description": "Full records from detail pages (abstract, keywords, institutions, funds, DOI, pages, citations) for record_refs, exact titles or a search_id; batch them.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "fields": {
-            "description": "只返回这些字段（如 abstract、keywords、doi、quality）；省略返回全部",
+            "description": "keys to return",
             "items": {
               "type": "string"
             },
@@ -167,17 +159,18 @@
             ]
           },
           "limit": {
+            "description": "rows of search_id, default 10, max 100",
             "type": "integer"
           },
           "local_only": {
-            "description": "只读本地已有数据，不联网",
+            "description": "no network: stored records only",
             "type": "boolean"
           },
           "offset": {
             "type": "integer"
           },
           "quality": {
-            "description": "同时采集来源期刊收录与影响因子",
+            "description": "add journal indexing and impact factors",
             "type": "boolean"
           },
           "record_refs": {
@@ -190,10 +183,11 @@
             ]
           },
           "refresh": {
-            "description": "忽略缓存重新读取详情页",
+            "description": "read detail pages again",
             "type": "boolean"
           },
           "scope": {
+            "description": "default selected",
             "enum": [
               "selected",
               "eligible",
@@ -205,7 +199,7 @@
             "type": "string"
           },
           "titles": {
-            "description": "完整题名，按题名精确定位",
+            "description": "exact full titles",
             "items": {
               "type": "string"
             },
@@ -226,16 +220,16 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "为文本中的《完整论文题名》补上知网链接，支持嵌套书名号，保留已有 Markdown 链接。",
+      "description": "Add CNKI links to 《full paper titles》 in a text; existing Markdown links are kept.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "lookup_missing": {
-            "description": "本地没有的题名联网定位",
+            "description": "locate titles not stored",
             "type": "boolean"
           },
           "text": {
-            "description": "含《完整论文题名》的文本",
+            "description": "text with 《full paper titles》",
             "type": "string"
           }
         },
@@ -253,16 +247,16 @@
         "openWorldHint": true,
         "readOnlyHint": false
       },
-      "description": "打开独立浏览器窗口，由用户直接登录（个人或机构远程入口）；凭据不经过 MCP。",
+      "description": "Open the dedicated browser for the user's own CNKI sign-in (personal or institutional). Returns at once if already logged in.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "force": {
-            "description": "即使已观察到身份也打开登录窗口",
+            "description": "open the window even if logged in",
             "type": "boolean"
           },
           "remote_access_url": {
-            "description": "机构远程访问入口（HTTPS）；省略使用知网首页登录",
+            "description": "institutional remote-access entry (HTTPS)",
             "type": "string"
           }
         },
@@ -275,85 +269,20 @@
         "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": true,
-        "readOnlyHint": false
-      },
-      "description": "cancel 取消任务；continue 继续中断的检索（可增加预算）；resume 告知人工步骤已完成；show 重新显示人工窗口；recover 重启浏览器。",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "action": {
-            "description": "cancel 取消；continue 继续中断的检索；resume 人工步骤已完成；show 重新显示人工窗口；recover 重启浏览器",
-            "enum": [
-              "cancel",
-              "continue",
-              "resume",
-              "show",
-              "recover"
-            ],
-            "type": "string"
-          },
-          "additional_requests": {
-            "type": "integer"
-          },
-          "additional_seconds": {
-            "type": "integer"
-          },
-          "operation_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "action"
-        ],
-        "type": "object"
-      },
-      "name": "operation_control"
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "读取任务进度与结果；wait_seconds 可长轮询直到完成或需要人工处理。",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "operation_id": {
-            "description": "省略时返回当前活动任务",
-            "type": "string"
-          },
-          "wait_seconds": {
-            "description": "最多等待秒数（0–55），任务完成或需要人工时立即返回",
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "name": "operation_status"
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": true,
-        "readOnlyHint": true
-      },
-      "description": "读取论文 HTML 正文，支持章节与分页；正文缓存 30 分钟，翻页不再请求。",
+      "description": "Read a paper's HTML full text, 8000 chars per call; continue with snapshot_id + offset=next_offset (no network). First page lists sections. Earlier complete readings are reused. trial=true: preview only.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "max_characters": {
-            "description": "本页最多码点数，默认 20000",
+            "description": "default 8000, max 30000",
             "type": "integer"
           },
           "offset": {
-            "description": "码点偏移，用于分页",
             "type": "integer"
           },
           "on_verification": {
-            "description": "ask（默认）或 skip",
             "enum": [
               "ask",
               "skip"
@@ -363,18 +292,26 @@
           "record_ref": {
             "type": "string"
           },
+          "refresh": {
+            "description": "reopen the reader instead of the saved text",
+            "type": "boolean"
+          },
           "section": {
-            "description": "只返回该章节（取返回的 sections 中的标题）",
+            "description": "only this section (a title from sections)",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "description": "continue saved text without network",
             "type": "string"
           },
           "title": {
-            "description": "完整题名（与 record_ref 二选一）",
+            "description": "exact full title instead of record_ref",
             "type": "string"
           }
         },
         "type": "object"
       },
-      "name": "read_online_html"
+      "name": "read"
     },
     {
       "annotations": {
@@ -383,12 +320,119 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "自主研究检索：概念规划、多字段并发检索、动态详情与期刊质量增强、关键词反馈、相关性/质量重排。只需 query；limit 仅控制展示条数。",
+      "description": "Page a saved search locally; continue=true resumes a partial search.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
+          "additional_requests": {
+            "description": "default 200",
+            "type": "integer"
+          },
+          "continue": {
+            "description": "resume a partial search",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "default 10, max 100",
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "scope": {
+            "description": "default selected",
+            "enum": [
+              "selected",
+              "eligible",
+              "candidates"
+            ],
+            "type": "string"
+          },
+          "search_id": {
+            "type": "string"
+          },
+          "view": {
+            "enum": [
+              "compact",
+              "titles",
+              "full"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "search_id"
+        ],
+        "type": "object"
+      },
+      "name": "results"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search CNKI: query (research question, planned into subject/title/keyword channels), concept_groups (AND of synonym OR-groups) or expression (field search: authors, source, funds...). Reads the best candidates' details and journal quality, adds a keyword feedback round, ranks. Returns search_id, counts, plan, coverage, columnar rows.",
+      "inputSchema": {
+        "$defs": {
+          "expression": {
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "enum": [
+                  "subject",
+                  "title",
+                  "keywords",
+                  "abstract",
+                  "authors",
+                  "first_author",
+                  "corresponding_author",
+                  "institutions",
+                  "source",
+                  "doi",
+                  "funds",
+                  "fulltext",
+                  "references",
+                  "classification",
+                  "subtitle",
+                  "title_keywords_abstract"
+                ],
+                "type": "string"
+              },
+              "items": {
+                "items": {
+                  "$ref": "#/$defs/expression"
+                },
+                "type": "array"
+              },
+              "match": {
+                "enum": [
+                  "phrase",
+                  "exact"
+                ],
+                "type": "string"
+              },
+              "op": {
+                "enum": [
+                  "and",
+                  "or",
+                  "not"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
           "concept_groups": {
-            "description": "必要概念组：组间 AND，组内为同义词 OR",
+            "description": "AND of synonym OR-groups, e.g. [[\"违约金\",\"违约赔偿\"],[\"调整\"]]",
             "items": {
               "items": {
                 "type": "string"
@@ -403,12 +447,20 @@
               "array"
             ]
           },
+          "expression": {
+            "$ref": "#/$defs/expression",
+            "description": "native field search instead of query",
+            "type": [
+              "null",
+              "object"
+            ]
+          },
           "limit": {
-            "description": "展示条数 1–100，不影响检索范围",
+            "description": "rows shown, default 10, max 50",
             "type": "integer"
           },
           "mode": {
-            "description": "precise 不做反馈检索；balanced（默认）；broad",
+            "description": "default balanced; precise skips the feedback round",
             "enum": [
               "precise",
               "balanced",
@@ -420,27 +472,19 @@
             "additionalProperties": false,
             "properties": {
               "candidate_target": {
-                "description": "候选目标数，默认 300（结构化检索默认等于 limit）",
+                "description": "default 300",
                 "type": "integer"
               },
-              "freshness": {
-                "description": "prefer_cache（默认，10 分钟内同范围检索直接复用，0 请求）或 live",
-                "enum": [
-                  "prefer_cache",
-                  "live"
-                ],
-                "type": "string"
-              },
               "max_pages": {
-                "description": "每通道最多页数，默认 5",
+                "description": "pages per channel, default 5",
                 "type": "integer"
               },
               "max_requests": {
-                "description": "请求预算，默认 600",
+                "description": "request budget, default 600",
                 "type": "integer"
               },
               "metadata": {
-                "description": "详情增强范围：ranked（默认，按初排动态选池）、all、basic（不增强）",
+                "description": "default ranked: detail pages of the best candidates only",
                 "enum": [
                   "ranked",
                   "all",
@@ -449,32 +493,47 @@
                 "type": "string"
               },
               "on_verification": {
-                "description": "人工验证策略：ask 弹窗等待用户（默认），skip 跳过该资源",
+                "description": "default ask: window for the user",
                 "enum": [
                   "ask",
                   "skip"
                 ],
                 "type": "string"
               },
-              "sort": {
-                "description": "知网排序：relevance、date_desc、cited_desc、downloaded_desc",
-                "enum": [
-                  "relevance",
-                  "date_desc",
-                  "cited_desc",
-                  "downloaded_desc"
-                ],
-                "type": "string"
-              },
               "timeout_seconds": {
-                "description": "活动时间预算（秒），默认 900",
+                "description": "active-time budget, default 900",
                 "type": "integer"
               }
             },
-            "type": "object"
+            "type": [
+              "null",
+              "object"
+            ]
           },
           "query": {
-            "description": "研究问题或检索词",
+            "description": "research question or keywords",
+            "type": "string"
+          },
+          "refresh": {
+            "description": "ignore the 10-minute cache",
+            "type": "boolean"
+          },
+          "sort": {
+            "description": "default relevance",
+            "enum": [
+              "relevance",
+              "date_desc",
+              "cited_desc",
+              "downloaded_desc"
+            ],
+            "type": "string"
+          },
+          "view": {
+            "enum": [
+              "compact",
+              "titles",
+              "full"
+            ],
             "type": "string"
           },
           "year_from": {
@@ -484,9 +543,6 @@
             "type": "integer"
           }
         },
-        "required": [
-          "query"
-        ],
         "type": "object"
       },
       "name": "search"
@@ -498,164 +554,44 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "本地分页读取检索结果，不联网。",
+      "description": "No args: login and service state. operation_id: wait (default 50 s) for the result; also cancel, user_done, show, recover.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
-          "limit": {
-            "type": "integer"
-          },
-          "offset": {
-            "type": "integer"
-          },
-          "scope": {
-            "description": "selected（默认）、eligible、candidates",
-            "enum": [
-              "selected",
-              "eligible",
-              "candidates"
-            ],
-            "type": "string"
-          },
-          "search_id": {
-            "type": "string"
-          },
-          "view": {
-            "description": "titles（默认）、compact（含摘要与评分）、records（完整题录）",
-            "enum": [
-              "titles",
-              "compact",
-              "records"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "search_id"
-        ],
-        "type": "object"
-      },
-      "name": "search_results"
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": true,
-        "readOnlyHint": true
-      },
-      "description": "已观察到的个人/机构登录状态；refresh=true 在后台页面重新检查。",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "refresh": {
+          "cancel": {
             "type": "boolean"
-          }
-        },
-        "type": "object"
-      },
-      "name": "session_status"
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": true,
-        "readOnlyHint": true
-      },
-      "description": "知网原生高级检索：字段条件 + AND/OR/NOT，可限定年份并按相关度、时间、被引或下载排序。",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "expression": {
-            "additionalProperties": true,
-            "description": "布尔表达式。叶子 {field,value,match}：field 为 subject、title、keywords、abstract、authors、first_author、corresponding_author、institutions、source、doi、funds、fulltext、references、classification、subtitle、title_keywords_abstract；match 为 phrase（默认）或 exact。组合 {op:and|or|not, items:[...]}。例：{op:and,items:[{field:title,value:违约金},{field:authors,value:王利明}]}",
-            "type": "object"
           },
-          "limit": {
-            "description": "返回条数 1–100，默认 50；同时作为默认抓取范围",
-            "type": "integer"
+          "check_login": {
+            "description": "check the login on a background page",
+            "type": "boolean"
           },
-          "options": {
-            "additionalProperties": false,
-            "properties": {
-              "candidate_target": {
-                "description": "候选目标数，默认 300（结构化检索默认等于 limit）",
-                "type": "integer"
-              },
-              "freshness": {
-                "description": "prefer_cache（默认，10 分钟内同范围检索直接复用，0 请求）或 live",
-                "enum": [
-                  "prefer_cache",
-                  "live"
-                ],
-                "type": "string"
-              },
-              "max_pages": {
-                "description": "每通道最多页数，默认 5",
-                "type": "integer"
-              },
-              "max_requests": {
-                "description": "请求预算，默认 600",
-                "type": "integer"
-              },
-              "metadata": {
-                "description": "详情增强范围：ranked（默认，按初排动态选池）、all、basic（不增强）",
-                "enum": [
-                  "ranked",
-                  "all",
-                  "basic"
-                ],
-                "type": "string"
-              },
-              "on_verification": {
-                "description": "人工验证策略：ask 弹窗等待用户（默认），skip 跳过该资源",
-                "enum": [
-                  "ask",
-                  "skip"
-                ],
-                "type": "string"
-              },
-              "sort": {
-                "description": "知网排序：relevance、date_desc、cited_desc、downloaded_desc",
-                "enum": [
-                  "relevance",
-                  "date_desc",
-                  "cited_desc",
-                  "downloaded_desc"
-                ],
-                "type": "string"
-              },
-              "timeout_seconds": {
-                "description": "活动时间预算（秒），默认 900",
-                "type": "integer"
-              }
-            },
-            "type": "object"
+          "details": {
+            "description": "local diagnostics",
+            "type": "boolean"
           },
-          "sort": {
-            "description": "relevance（默认）、date_desc、cited_desc、downloaded_desc",
-            "enum": [
-              "relevance",
-              "date_desc",
-              "cited_desc",
-              "downloaded_desc"
-            ],
+          "operation_id": {
             "type": "string"
           },
-          "year_from": {
-            "type": "integer"
+          "recover": {
+            "description": "restart the browser",
+            "type": "boolean"
           },
-          "year_to": {
+          "show": {
+            "description": "bring the verification window to the front",
+            "type": "boolean"
+          },
+          "user_done": {
+            "description": "manual step finished (institutional remote login)",
+            "type": "boolean"
+          },
+          "wait_seconds": {
+            "description": "1-55, default 50",
             "type": "integer"
           }
         },
-        "required": [
-          "expression"
-        ],
         "type": "object"
       },
-      "name": "structured_search"
+      "name": "status"
     }
   ]
 }

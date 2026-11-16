@@ -242,7 +242,7 @@ func TestReader(t *testing.T) {
 	if _, e = ParseReader(`<div id="ChDivSummary">摘要</div>`, "title"); e == nil {
 		t.Fatal("summary accepted as body")
 	}
-	page, _ := sliceDocument(docEntry{Ref: "r", Content: out}, ReadInput{Section: "第一节"})
+	page, _ := sliceSnapshot(Snapshot{ID: "cn_0000000000000000", Ref: "r", Text: string(out.Text), Sections: out.Sections, Coverage: out.Coverage}, ReadArgs{Section: "第一节"}, false)
 	if page["text"] != "第一节\n\n子章节内容" {
 		t.Fatalf("section slice: %q", page["text"])
 	}

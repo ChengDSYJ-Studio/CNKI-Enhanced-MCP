@@ -9,3 +9,5 @@ dist/
 .runtime/
 data/
 __pycache__/
+/releases/
+/bin/

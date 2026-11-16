@@ -15,7 +15,10 @@ import (
 	"time"
 )
 
-const Version = "2.0.0"
+const Version = "2.1.0"
+
+// Application names this service in owner markers and diagnostics.
+const Application = "cnki-mcp"
 
 // ParserVersion invalidates cached detail/journal observations when parsing changes.
 const ParserVersion = "5"
@@ -39,7 +42,7 @@ func asProblem(err error) *Problem {
 		return &Problem{Code: "CANCELLED", Message: "任务已取消"}
 	}
 	if isInfrastructure(err) {
-		return &Problem{Code: "BROWSER_UNAVAILABLE", Message: "浏览器连接中断；不代表论文无权限。可用 operation_control(action=recover) 重启浏览器", Retryable: true}
+		return &Problem{Code: "BROWSER_UNAVAILABLE", Message: "浏览器连接中断；不代表论文无权限。可用 status(recover=true) 重启浏览器", Retryable: true}
 	}
 	return &Problem{Code: "OPERATION_FAILED", Message: err.Error()}
 }
@@ -202,13 +205,25 @@ func merge(old, fresh Paper) Paper {
 	return out
 }
 
+// Snapshot is extracted reading text kept for later reads without a request.
+type Snapshot struct {
+	ID       string          `json:"snapshot_id"`
+	Ref      string          `json:"record_ref"`
+	Title    string          `json:"title"`
+	Text     string          `json:"text"`
+	Sections []Section       `json:"sections,omitempty"`
+	Coverage ContentCoverage `json:"coverage"`
+	Trial    bool            `json:"trial,omitempty"`
+	Observed time.Time       `json:"observed_at"`
+}
+
 func fingerprint(v any) string {
 	b, _ := json.Marshal(v)
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }
 func newID(prefix string) string {
-	var b [12]byte
+	var b [8]byte
 	_, _ = rand.Read(b[:])
 	return prefix + hex.EncodeToString(b[:])
 }

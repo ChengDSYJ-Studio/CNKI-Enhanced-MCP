@@ -1,41 +1,33 @@
+// SQLite store: papers with their identity index, journal evidence,
+// searches, operations, reading snapshots and downloaded files.
+
 package cnki
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
-// Store keeps all research data in memory and persists one JSON snapshot in
-// the background. Network work never waits for disk I/O; a crash loses at most
-// the last flush interval, and every write is atomic (temp file + rename).
+// Store writes every change straight to SQLite (WAL, one connection). Nothing
+// is held in memory beyond the rows a call reads, so startup is instant and a
+// change costs one small transaction instead of rewriting the whole data set.
 type Store struct {
-	mu    sync.RWMutex
-	root  string
-	data  storeFile
-	index map[string][]string // identity and title keys -> refs
-	dirty bool
-	lock  *os.File
-	stop  chan struct{}
-	done  chan struct{}
+	mu   sync.Mutex // serializes read-merge-write sequences (Upsert, Update)
+	root string
+	lock *os.File
+	db   *sql.DB
+	last error // last failed write, reported by Stats
 }
 
-type storeFile struct {
-	Version   int                      `json:"version"`
-	Papers    map[string]*Paper        `json:"papers"`
-	Sources   map[string]Quality       `json:"sources"`
-	Searches  map[string]*SearchRecord `json:"searches"`
-	Cache     map[string]cacheEntry    `json:"search_cache"`
-	Ops       map[string]*OpRecord     `json:"operations"`
-	Artifacts map[string]Artifact      `json:"artifacts"`
-}
-type cacheEntry struct {
-	SearchID string    `json:"search_id"`
-	At       time.Time `json:"at"`
-}
 type SearchRecord struct {
 	ID       string     `json:"search_id"`
 	Status   string     `json:"status"`
@@ -53,146 +45,232 @@ type Entry struct {
 	Evidence Scores  `json:"evidence"`
 }
 
-const storeVersion = 5
-const flushInterval = 2 * time.Second
+// storedPaper keeps the site locator, which is never reported.
+type storedPaper struct {
+	Paper
+	Locator string `json:"locator,omitempty"`
+}
+
+const schemaV1 = `CREATE TABLE papers(ref TEXT PRIMARY KEY, title_key TEXT NOT NULL, body TEXT NOT NULL, updated INTEGER NOT NULL);
+ CREATE INDEX paper_title ON papers(title_key);
+ CREATE TABLE paper_keys(key TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(key, ref)) WITHOUT ROWID;
+ CREATE TABLE sources(key TEXT PRIMARY KEY, body TEXT NOT NULL, updated INTEGER NOT NULL);
+ CREATE TABLE searches(id TEXT PRIMARY KEY, cache_key TEXT NOT NULL, created INTEGER NOT NULL, body TEXT NOT NULL);
+ CREATE INDEX search_cache ON searches(cache_key, created DESC);
+ CREATE TABLE operations(id TEXT PRIMARY KEY, body TEXT NOT NULL, updated INTEGER NOT NULL);
+ CREATE TABLE artifacts(key TEXT PRIMARY KEY, body TEXT NOT NULL, updated INTEGER NOT NULL);
+ CREATE TABLE snapshots(id TEXT PRIMARY KEY, ref TEXT NOT NULL, body TEXT NOT NULL, updated INTEGER NOT NULL);
+ CREATE INDEX snapshot_ref ON snapshots(ref, updated DESC);
+ PRAGMA user_version=1;`
 
 func OpenStore(root string) (*Store, error) {
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := claimDataRoot(root); err != nil {
 		return nil, err
 	}
-	lock, err := lockDirectory(filepath.Join(root, "cnki.lock"))
+	lock, err := lockDirectory(filepath.Join(root, ".cnki-store.lock"))
 	if err != nil {
-		return nil, fail("DATA_DIRECTORY_IN_USE", "另一个 MCP 进程正在使用此数据目录")
+		return nil, fail("DATA_DIRECTORY_IN_USE", "该知网数据目录已被另一服务使用")
 	}
-	s := &Store{root: root, lock: lock, index: map[string][]string{}, stop: make(chan struct{}), done: make(chan struct{})}
-	raw, err := os.ReadFile(s.path())
-	if err == nil {
-		if err = json.Unmarshal(raw, &s.data); err != nil || s.data.Version != storeVersion {
-			_ = os.Rename(s.path(), s.path()+".unreadable-"+time.Now().Format("20060102-150405"))
-			s.data = storeFile{}
+	path := filepath.Join(root, "cnki.sqlite")
+	_, statErr := os.Stat(path)
+	fresh := os.IsNotExist(statErr)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		_ = unlockDirectory(lock)
+		return nil, err
+	}
+	f.Close()
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		_ = unlockDirectory(lock)
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	s := &Store{root: root, lock: lock, db: db}
+	for _, pragma := range []string{"PRAGMA auto_vacuum=INCREMENTAL", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=NORMAL", "PRAGMA busy_timeout=5000"} {
+		if _, err = db.Exec(pragma); err != nil {
+			break
 		}
 	}
-	d := &s.data
-	d.Version = storeVersion
-	if d.Papers == nil {
-		d.Papers = map[string]*Paper{}
+	if err == nil {
+		err = s.initialize()
 	}
-	if d.Sources == nil {
-		d.Sources = map[string]Quality{}
+	if err == nil && fresh {
+		if err = s.importLegacy(filepath.Join(root, "research.json")); err == nil {
+			// A large import leaves a WAL as big as the data; fold it in and truncate.
+			_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+		}
 	}
-	if d.Searches == nil {
-		d.Searches = map[string]*SearchRecord{}
+	if err != nil {
+		s.Close()
+		return nil, err
 	}
-	if d.Cache == nil {
-		d.Cache = map[string]cacheEntry{}
-	}
-	if d.Ops == nil {
-		d.Ops = map[string]*OpRecord{}
-	}
-	if d.Artifacts == nil {
-		d.Artifacts = map[string]Artifact{}
-	}
-	for _, p := range d.Papers {
-		s.indexPaper(*p)
-	}
-	go s.flushLoop()
+	s.prune()
 	return s, nil
 }
-func (s *Store) path() string { return filepath.Join(s.root, "research.json") }
-func (s *Store) Close() error {
-	close(s.stop)
-	<-s.done
-	err := s.Flush()
-	_ = unlockDirectory(s.lock)
-	return err
-}
-func (s *Store) flushLoop() {
-	defer close(s.done)
-	t := time.NewTicker(flushInterval)
-	defer t.Stop()
-	for {
-		select {
-		case <-s.stop:
-			return
-		case <-t.C:
-			_ = s.Flush()
-		}
+
+func (s *Store) initialize() error {
+	var version int
+	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		return err
 	}
+	switch version {
+	case 1:
+		return nil
+	case 0:
+		_, err := s.db.Exec(schemaV1)
+		return err
+	}
+	return fail("STORE_INCOMPATIBLE", "未知的知网 SQLite 版本")
 }
-func (s *Store) Flush() error {
-	s.mu.Lock()
-	if !s.dirty {
-		s.mu.Unlock()
+
+// importLegacy copies papers, journal evidence and downloaded-file records
+// from the 2.0 JSON store into a new database. Searches and operations are
+// not carried over (their IDs and format changed). The JSON file is left as is.
+func (s *Store) importLegacy(path string) error {
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
-	s.trim()
-	data, err := json.Marshal(&s.data)
-	s.dirty = false
-	s.mu.Unlock()
 	if err != nil {
 		return err
 	}
-	temp := s.path() + ".tmp"
-	f, err := os.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	var old struct {
+		Version   int                 `json:"version"`
+		Papers    map[string]*Paper   `json:"papers"`
+		Sources   map[string]Quality  `json:"sources"`
+		Artifacts map[string]Artifact `json:"artifacts"`
+	}
+	if json.Unmarshal(raw, &old) != nil || old.Version != 5 {
+		return nil // unreadable or unknown: start empty, keep the file untouched
+	}
+	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
-	if _, err = f.Write(data); err == nil {
-		err = f.Sync()
+	defer tx.Rollback()
+	for _, p := range old.Papers {
+		if p != nil && p.Ref != "" {
+			if err = writePaper(tx, storedPaper{Paper: *p}); err != nil {
+				return err
+			}
+		}
 	}
-	if e := f.Close(); err == nil {
+	for k, q := range old.Sources {
+		if err = saveJSON(tx, "sources", "key", k, q); err != nil {
+			return err
+		}
+	}
+	for k, a := range old.Artifacts {
+		if err = saveJSON(tx, "artifacts", "key", k, a); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// prune bounds history. Papers, journal evidence and files are kept.
+func (s *Store) prune() {
+	now := time.Now().UnixNano()
+	day := int64(24 * time.Hour)
+	for _, q := range []struct {
+		sql string
+		age int64
+	}{
+		{"DELETE FROM operations WHERE updated < ?", 7 * day},
+		{"DELETE FROM searches WHERE created < ?", 14 * day},
+		{"DELETE FROM snapshots WHERE updated < ?", 60 * day},
+	} {
+		_, _ = s.db.Exec(q.sql, now-q.age)
+	}
+	_, _ = s.db.Exec("PRAGMA incremental_vacuum")
+}
+
+func (s *Store) Close() error {
+	_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	err := s.db.Close()
+	if e := unlockDirectory(s.lock); err == nil {
 		err = e
-	}
-	if err == nil {
-		err = os.Rename(temp, s.path())
-	}
-	if err != nil {
-		s.mu.Lock()
-		s.dirty = true
-		s.mu.Unlock()
 	}
 	return err
 }
 
-// trim bounds history; papers and journal evidence are kept.
-func (s *Store) trim() {
-	cut := func(n int, created func(string) time.Time, keys []string, del func(string)) {
-		if len(keys) <= n {
-			return
-		}
-		sort.Slice(keys, func(i, j int) bool { return created(keys[i]).After(created(keys[j])) })
-		for _, k := range keys[n:] {
-			del(k)
-		}
+type executor interface {
+	Exec(string, ...any) (sql.Result, error)
+}
+
+// saveJSON upserts one JSON row; table and key column are constants of this file.
+func saveJSON(q executor, table, column, id string, v any) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
 	}
-	searches := make([]string, 0, len(s.data.Searches))
-	for k := range s.data.Searches {
-		searches = append(searches, k)
+	_, err = q.Exec("INSERT INTO "+table+"("+column+",body,updated) VALUES(?,?,?) ON CONFLICT("+column+") DO UPDATE SET body=excluded.body, updated=excluded.updated", id, string(b), time.Now().UnixNano())
+	return err
+}
+
+func loadJSON[T any](row *sql.Row) (T, bool) {
+	var v T
+	var raw string
+	if row.Scan(&raw) != nil || json.Unmarshal([]byte(raw), &v) != nil {
+		return v, false
 	}
-	cut(300, func(k string) time.Time { return s.data.Searches[k].Created }, searches, func(k string) { delete(s.data.Searches, k) })
-	ops := make([]string, 0, len(s.data.Ops))
-	for k := range s.data.Ops {
-		ops = append(ops, k)
-	}
-	cut(200, func(k string) time.Time { return s.data.Ops[k].Created }, ops, func(k string) { delete(s.data.Ops, k) })
-	for k, c := range s.data.Cache {
-		if time.Since(c.At) > searchCacheTTL || s.data.Searches[c.SearchID] == nil {
-			delete(s.data.Cache, k)
-		}
+	return v, true
+}
+
+func (s *Store) note(err error) {
+	if err != nil {
+		s.mu.Lock()
+		s.last = err
+		s.mu.Unlock()
 	}
 }
 
-func (s *Store) indexPaper(p Paper) {
-	for _, k := range append(identityKeys(p), "title:"+titleKey(p.Title)) {
-		refs := s.index[k]
-		found := false
-		for _, r := range refs {
-			found = found || r == p.Ref
-		}
-		if !found {
-			s.index[k] = append(refs, p.Ref)
+func writePaper(q executor, p storedPaper) error {
+	b, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	if _, err = q.Exec("INSERT INTO papers(ref,title_key,body,updated) VALUES(?,?,?,?) ON CONFLICT(ref) DO UPDATE SET title_key=excluded.title_key, body=excluded.body, updated=excluded.updated", p.Ref, titleKey(p.Title), string(b), time.Now().UnixNano()); err != nil {
+		return err
+	}
+	for _, k := range identityKeys(p.Paper) {
+		if _, err = q.Exec("INSERT OR IGNORE INTO paper_keys(key,ref) VALUES(?,?)", k, p.Ref); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+type querier interface {
+	QueryRow(string, ...any) *sql.Row
+	Query(string, ...any) (*sql.Rows, error)
+}
+
+func readPaper(q querier, ref string) (storedPaper, bool) {
+	p, ok := loadJSON[storedPaper](q.QueryRow("SELECT body FROM papers WHERE ref=?", ref))
+	if ok {
+		p.Paper.Locator = p.Locator
+	}
+	return p, ok
+}
+
+func keyRefs(q querier, keys []string) []string {
+	out := []string{}
+	for _, k := range keys {
+		rows, err := q.Query("SELECT ref FROM paper_keys WHERE key=?", k)
+		if err != nil {
+			continue
+		}
+		for rows.Next() {
+			var r string
+			if rows.Scan(&r) == nil {
+				out = append(out, r)
+			}
+		}
+		rows.Close()
+	}
+	return out
 }
 
 // Upsert merges observations into existing records by verified identity and
@@ -201,19 +279,22 @@ func (s *Store) Upsert(fresh []Paper) []Paper {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Paper, 0, len(fresh))
+	tx, err := s.db.Begin()
+	if err != nil {
+		s.last = err
+		return fresh
+	}
+	defer tx.Rollback()
 	for _, p := range fresh {
-		var match *Paper
-		candidates := []string{}
-		for _, k := range identityKeys(p) {
-			candidates = append(candidates, s.index[k]...)
-		}
+		candidates := keyRefs(tx, identityKeys(p))
 		if p.Ref != "" {
 			candidates = append(candidates, p.Ref)
 		}
 		sort.Strings(candidates)
-		for _, ref := range candidates {
-			if old := s.data.Papers[ref]; old != nil && (old.Ref == p.Ref && detailMatches(*old, p) || SamePaper(*old, p)) {
-				match = old
+		var match *Paper
+		for _, ref := range uniqueStrings(candidates) {
+			if old, ok := readPaper(tx, ref); ok && (old.Ref == p.Ref && detailMatches(old.Paper, p) || SamePaper(old.Paper, p)) {
+				match = &old.Paper
 				break
 			}
 		}
@@ -225,16 +306,18 @@ func (s *Store) Upsert(fresh []Paper) []Paper {
 			if p.Ref == "" {
 				p.Ref = provisionalRef(p)
 			}
-			if s.data.Papers[p.Ref] != nil {
-				p.Ref = newID("rec_")
+			if _, taken := readPaper(tx, p.Ref); taken {
+				p.Ref = newID("cr_")
 			}
 		}
-		stored := p
-		s.data.Papers[p.Ref] = &stored
-		s.indexPaper(p)
+		if err = writePaper(tx, storedPaper{Paper: p, Locator: p.Locator}); err != nil {
+			s.last = err
+		}
 		out = append(out, p)
 	}
-	s.dirty = true
+	if err = tx.Commit(); err != nil {
+		s.last = err
+	}
 	return out
 }
 
@@ -242,115 +325,188 @@ func (s *Store) Upsert(fresh []Paper) []Paper {
 func (s *Store) Update(ref string, fn func(*Paper)) (Paper, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	p := s.data.Papers[ref]
-	if p == nil {
+	old, ok := readPaper(s.db, ref)
+	if !ok {
 		return Paper{}, false
 	}
-	next := *p
+	next := old.Paper
 	fn(&next)
 	next.Ref = ref
-	s.data.Papers[ref] = &next
-	s.indexPaper(next)
-	s.dirty = true
+	if err := writePaper(s.db, storedPaper{Paper: next, Locator: next.Locator}); err != nil {
+		s.last = err
+	}
 	return next, true
 }
+
 func (s *Store) Paper(ref string) (Paper, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if p := s.data.Papers[ref]; p != nil {
-		return *p, true
-	}
-	return Paper{}, false
-}
-func (s *Store) Papers(refs []string) []Paper {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]Paper, 0, len(refs))
-	for _, ref := range refs {
-		if p := s.data.Papers[ref]; p != nil {
-			out = append(out, *p)
-		}
-	}
-	return out
-}
-func (s *Store) ByTitle(title string) []Paper {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := []Paper{}
-	key := titleKey(title)
-	for _, ref := range s.index["title:"+key] {
-		if p := s.data.Papers[ref]; p != nil && titleKey(p.Title) == key {
-			out = append(out, *p)
-		}
-	}
-	return out
-}
-func (s *Store) Source(key string) (Quality, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	q, ok := s.data.Sources[key]
-	return q, ok
-}
-func (s *Store) PutSource(key string, q Quality) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.data.Sources[key] = q
-	s.dirty = true
-}
-func (s *Store) Search(id string) (*SearchRecord, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	r := s.data.Searches[id]
-	return r, r != nil
+	p, ok := readPaper(s.db, ref)
+	return p.Paper, ok
 }
 
-// PutSearch stores an immutable record; callers never mutate it afterwards.
-func (s *Store) PutSearch(r *SearchRecord, cacheKey string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.data.Searches[r.ID] = r
-	if cacheKey != "" {
-		s.data.Cache[cacheKey] = cacheEntry{SearchID: r.ID, At: time.Now().UTC()}
+// Papers returns the stored papers in the order of refs (unknown refs are skipped).
+func (s *Store) Papers(refs []string) []Paper {
+	found := make(map[string]Paper, len(refs))
+	for start := 0; start < len(refs); start += 500 {
+		chunk := refs[start:min(len(refs), start+500)]
+		args := make([]any, len(chunk))
+		for i, r := range chunk {
+			args[i] = r
+		}
+		rows, err := s.db.Query("SELECT body FROM papers WHERE ref IN (?"+strings.Repeat(",?", len(chunk)-1)+")", args...)
+		if err != nil {
+			s.note(err)
+			continue
+		}
+		for rows.Next() {
+			var raw string
+			var p storedPaper
+			if rows.Scan(&raw) == nil && json.Unmarshal([]byte(raw), &p) == nil {
+				p.Paper.Locator = p.Locator
+				found[p.Ref] = p.Paper
+			}
+		}
+		rows.Close()
 	}
-	s.dirty = true
+	out := make([]Paper, 0, len(refs))
+	for _, r := range refs {
+		if p, ok := found[r]; ok {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func (s *Store) ByTitle(title string) []Paper {
+	rows, err := s.db.Query("SELECT ref FROM papers WHERE title_key=? ORDER BY ref", titleKey(title))
+	if err != nil {
+		return nil
+	}
+	refs := []string{}
+	for rows.Next() {
+		var r string
+		if rows.Scan(&r) == nil {
+			refs = append(refs, r)
+		}
+	}
+	rows.Close()
+	return s.Papers(refs)
+}
+
+func (s *Store) Source(key string) (Quality, bool) {
+	return loadJSON[Quality](s.db.QueryRow("SELECT body FROM sources WHERE key=?", key))
+}
+func (s *Store) PutSource(key string, q Quality) { s.note(saveJSON(s.db, "sources", "key", key, q)) }
+
+func (s *Store) Search(id string) (*SearchRecord, bool) {
+	r, ok := loadJSON[SearchRecord](s.db.QueryRow("SELECT body FROM searches WHERE id=?", id))
+	return &r, ok
+}
+
+// PutSearch stores a search; a non-empty cacheKey makes it reusable for the cache window.
+func (s *Store) PutSearch(r *SearchRecord, cacheKey string) {
+	b, err := json.Marshal(r)
+	if err == nil {
+		_, err = s.db.Exec("INSERT INTO searches(id,cache_key,created,body) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET cache_key=excluded.cache_key, created=excluded.created, body=excluded.body", r.ID, cacheKey, time.Now().UnixNano(), string(b))
+	}
+	s.note(err)
 }
 func (s *Store) CachedSearch(key string) (*SearchRecord, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	c, ok := s.data.Cache[key]
-	if !ok || time.Since(c.At) > searchCacheTTL {
+	if key == "" {
 		return nil, false
 	}
-	r := s.data.Searches[c.SearchID]
-	return r, r != nil
+	r, ok := loadJSON[SearchRecord](s.db.QueryRow("SELECT body FROM searches WHERE cache_key=? AND created>? ORDER BY created DESC LIMIT 1", key, time.Now().Add(-searchCacheTTL).UnixNano()))
+	return &r, ok
 }
-func (s *Store) PutOp(r *OpRecord) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.data.Ops[r.ID] = r
-	s.dirty = true
-}
+
+func (s *Store) PutOp(r *OpRecord) { s.note(saveJSON(s.db, "operations", "id", r.ID, r)) }
 func (s *Store) Op(id string) (*OpRecord, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	r := s.data.Ops[id]
-	return r, r != nil
+	r, ok := loadJSON[OpRecord](s.db.QueryRow("SELECT body FROM operations WHERE id=?", id))
+	return &r, ok
 }
+
 func (s *Store) Artifact(key string) (Artifact, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	a, ok := s.data.Artifacts[key]
-	return a, ok
+	return loadJSON[Artifact](s.db.QueryRow("SELECT body FROM artifacts WHERE key=?", key))
 }
 func (s *Store) PutArtifact(key string, a Artifact) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	a.Updated = time.Now().UTC()
-	s.data.Artifacts[key] = a
-	s.dirty = true
+	s.note(saveJSON(s.db, "artifacts", "key", key, a))
 }
-func (s *Store) Stats() map[string]int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return map[string]int{"papers": len(s.data.Papers), "journals": len(s.data.Sources), "searches": len(s.data.Searches), "operations": len(s.data.Ops), "artifacts": len(s.data.Artifacts)}
+
+// PendingIncoming lists the transfer folders of downloads still awaiting confirmation.
+func (s *Store) PendingIncoming(maxAge time.Duration) map[string]bool {
+	out := map[string]bool{}
+	rows, err := s.db.Query("SELECT body FROM artifacts")
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	cutoff := time.Now().Add(-maxAge)
+	for rows.Next() {
+		var raw string
+		var a Artifact
+		// The record's own time counts: imported 2.0 rows are all new rows.
+		if rows.Scan(&raw) == nil && json.Unmarshal([]byte(raw), &a) == nil && a.State == "clicked" && a.Incoming != "" && a.Updated.After(cutoff) {
+			out[a.Incoming] = true
+		}
+	}
+	return out
+}
+
+// PutSnapshot saves extracted reading text, so later reads cost no request.
+func (s *Store) PutSnapshot(v Snapshot) {
+	b, err := json.Marshal(v)
+	if err == nil {
+		_, err = s.db.Exec("INSERT INTO snapshots(id,ref,body,updated) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body, updated=excluded.updated", v.ID, v.Ref, string(b), time.Now().UnixNano())
+	}
+	s.note(err)
+}
+func (s *Store) Snapshot(id string) (Snapshot, bool) {
+	return loadJSON[Snapshot](s.db.QueryRow("SELECT body FROM snapshots WHERE id=?", id))
+}
+
+// LatestSnapshot returns the newest snapshot of a paper.
+func (s *Store) LatestSnapshot(ref string) (Snapshot, bool) {
+	return loadJSON[Snapshot](s.db.QueryRow("SELECT body FROM snapshots WHERE ref=? ORDER BY updated DESC LIMIT 1", ref))
+}
+
+func (s *Store) Stats() map[string]any {
+	out := map[string]any{}
+	for _, t := range []string{"papers", "sources", "searches", "operations", "artifacts", "snapshots"} {
+		var n int
+		if s.db.QueryRow("SELECT COUNT(*) FROM "+t).Scan(&n) == nil {
+			out[t] = n
+		}
+	}
+	s.mu.Lock()
+	if s.last != nil {
+		out["last_write_error"] = s.last.Error()
+	}
+	s.mu.Unlock()
+	return out
+}
+
+func atomicJSON(path string, v any) error {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(filepath.Dir(path), ".cnki-write-")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	defer os.Remove(name)
+	if err = f.Chmod(0600); err == nil {
+		_, err = f.Write(b)
+	}
+	if err == nil {
+		err = f.Sync()
+	}
+	if e := f.Close(); err == nil {
+		err = e
+	}
+	if err != nil {
+		return err
+	}
+	return os.Rename(name, path)
 }

@@ -169,7 +169,7 @@ func TestSiteAgainstLocalKNS(t *testing.T) {
 	plan, _ := MakePlan(in)
 	st := &searchState{Input: in, Plan: plan}
 	began := time.Now()
-	op := jobs.Start("search", budget(in.Options), nil, func(op *Op) (any, error) {
+	op := jobs.Start(context.Background(), "search", budget(in.Options), nil, func(op *Op) (any, error) {
 		st.SearchID = op.ID()
 		return (&Researcher{Store: store, Site: site, Workers: 8}).Run(op, st)
 	})
@@ -190,12 +190,11 @@ func TestSiteAgainstLocalKNS(t *testing.T) {
 	}
 
 	// Batched title lookup, HTML reader and a single-click download.
-	app := &App{Root: root, Store: store, Jobs: jobs, Site: site, docs: docCache{entries: map[string]docEntry{}}, wait: time.Minute}
+	app := &App{Root: root, Store: store, Jobs: jobs, Site: site, wait: time.Minute}
 	before := fake.grids
-	result := jobs.Wait(context.Background(), jobs.Start("metadata", Budget{MaxRequests: 50}, nil, func(op *Op) (any, error) {
-		store.mu.Lock()
-		store.data.Papers, store.index = map[string]*Paper{}, map[string][]string{} // force online lookup
-		store.mu.Unlock()
+	result := jobs.Wait(context.Background(), jobs.Start(context.Background(), "metadata", Budget{MaxRequests: 50}, nil, func(op *Op) (any, error) {
+		_, _ = store.db.Exec("DELETE FROM papers") // force online lookup
+		_, _ = store.db.Exec("DELETE FROM paper_keys")
 		return app.papers(op, nil, []string{"违约金研究 3", "违约金研究 4", "违约金研究 5"})
 	}), time.Minute)
 	var found []Paper
@@ -203,14 +202,14 @@ func TestSiteAgainstLocalKNS(t *testing.T) {
 	if len(found) != 3 || fake.grids-before != 1 {
 		t.Fatalf("batched locate: %d papers, %d searches, %+v", len(found), fake.grids-before, result.Errors)
 	}
-	result = jobs.Wait(context.Background(), jobs.Start("read", Budget{MaxRequests: 20}, nil, func(op *Op) (any, error) {
+	result = jobs.Wait(context.Background(), jobs.Start(context.Background(), "read", Budget{MaxRequests: 20}, nil, func(op *Op) (any, error) {
 		c, err := site.Read(op, found[0])
 		return map[string]any{"sections": len(c.Sections), "scope": c.Coverage.Scope}, err
 	}), time.Minute)
 	if result.Status != "completed" || !strings.Contains(string(result.Result), `"sections":2`) {
 		t.Fatalf("reader: %+v %s", result, result.Result)
 	}
-	result = jobs.Wait(context.Background(), jobs.Start("download", Budget{MaxRequests: 20}, nil, func(op *Op) (any, error) {
+	result = jobs.Wait(context.Background(), jobs.Start(context.Background(), "download", Budget{MaxRequests: 20}, nil, func(op *Op) (any, error) {
 		return site.Download(op, root, found[0], DownloadInput{Format: "auto", WaitSeconds: 20})
 	}), time.Minute)
 	var art Artifact

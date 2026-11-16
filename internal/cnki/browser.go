@@ -56,8 +56,18 @@ func (b *Browser) Client() (*rod.Browser, uint64, error) {
 	}
 	// Restored tabs are stale work pages; cookies and login storage stay.
 	_ = os.RemoveAll(filepath.Join(profile, "Default", "Sessions"))
-	l := launcher.New().Bin(b.executable).UserDataDir(profile).Headless(b.headless).Leakless(false).
+	// Chrome's disk cache, temp and crash files stay inside the data root.
+	tmp, cache := filepath.Join(b.root, "tmp"), filepath.Join(b.root, "cache")
+	_ = os.RemoveAll(tmp)
+	for _, dir := range []string{tmp, cache} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return nil, 0, err
+		}
+	}
+	env := append(os.Environ(), "TMPDIR="+tmp, "TMP="+tmp, "TEMP="+tmp)
+	l := launcher.New().Bin(b.executable).UserDataDir(profile).Headless(b.headless).Leakless(false).Env(env...).
 		RemoteDebuggingPort(0).Set("no-startup-window").Set("start-minimized").
+		Set("disk-cache-dir", cache).Set("disk-cache-size", "52428800").Set("disable-breakpad").Set("crash-dumps-dir", tmp).
 		Set("disable-background-networking").Set("no-first-run").Set("no-default-browser-check").
 		Delete("disable-background-timer-throttling").Delete("disable-renderer-backgrounding")
 	endpoint, err := l.Launch()
@@ -96,6 +106,7 @@ func (b *Browser) closeLocked() {
 		b.launcher.Kill()
 	}
 	b.client, b.launcher = nil, nil
+	_ = os.RemoveAll(filepath.Join(b.root, "tmp"))
 }
 func (b *Browser) State() map[string]any {
 	b.mu.Lock()

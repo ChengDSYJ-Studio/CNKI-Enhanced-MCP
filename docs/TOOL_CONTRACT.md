@@ -1,35 +1,65 @@
-# CNKI Enhanced MCP 2.0 工具契约
+# Tool contract · 2.1
 
-以运行程序的 `cnki-mcp schema` 输出为准（发布包中的 `docs/tool-schema.json` 由真实 MCP 服务导出）。工具名前可能有客户端命名空间，以最终名称为准。
+The generated `tool-schema.json` is the authoritative JSON input schema. There are nine tools with short names; clients tell them apart by the server name `cnki` (Claude Code and Codex show `mcp__cnki__search`). The bundled skills (`internal/cnki/assets/SKILL.md`, resource `cnki://skill`, and `assets/cnki-deep-research/`) are the model-facing usage guides. The command-line `call` also accepts the 2.0 tool names.
 
-| 工具 | 约定 |
+| 2.0 | 2.1 |
 | --- | --- |
-| `search` | 只需 `query`；`concept_groups` 组间 AND、组内 OR；`mode=precise/balanced/broad`（precise 不做反馈检索）；`limit=1..100` 只影响展示 |
-| `options.metadata` | `ranked`（默认，按初排动态选详情池）/`all`/`basic`；`basic` 不读摘要，不能当深度研究 |
-| `options.freshness` | `prefer_cache`（默认，10 分钟内同范围检索直接复用，0 请求）/`live` |
-| `structured_search` | `expression` 为布尔树：叶子 `{field,value,match}`，组合 `{op:and/or/not,items}`；`sort=relevance/date_desc/cited_desc/downloaded_desc`；默认只抓 `limit` 条所需页数 |
-| `search_results` | 本地读取 `search_id` 的固定结果；`scope=selected/eligible/candidates`；`view=titles/compact/records` |
-| `get_metadata` | 批量 `record_refs`/完整 `titles`/`search_id`；`fields` 只投影需要的字段；`quality=true` 附带期刊收录与影响因子；`local_only=true` 不联网；`refresh=true` 重读详情 |
-| `export_citations` | 13 种格式；`format=custom` 配合 `template`；`filename` 写入数据目录 `exports/`，不覆盖 |
-| `read_online_html` | `record_ref` 与完整 `title` 二选一；`section`、`offset`、`max_characters` 分页；正文缓存 30 分钟，翻页不再请求 |
-| `download_paper` | 仅在用户需要文件时调用；`format=auto/pdf/caj`；点击前登记，结果未知时不再点击，需用户确认后传 `retry=true` |
-| `link_references` | 为《完整题名》补链接；`lookup_missing=true` 联网定位，每 10 个题名合并为一次检索 |
-| `login` / `session_status` | 用户在弹出的浏览器窗口直接登录，凭据不经过 MCP；`session_status(refresh=true)` 后台重查 |
-| `operation_status` | `wait_seconds≤55` 长轮询，任务完成或需要人工时立即返回 |
-| `operation_control` | `cancel`、`continue`（继续中断的检索，可加 `additional_requests/additional_seconds`）、`resume`（人工步骤已完成，通常无需调用）、`show`（重新显示人工窗口）、`recover`（重启浏览器） |
-| `diagnostics` | 本地检查，不启动浏览器 |
+| `search` | `search(query=…)` or `search(concept_groups=…)` |
+| `structured_search` | `search(expression=…)` |
+| `search_results` | `results` |
+| `operation_control(continue)` | `results(search_id, continue=true)` |
+| `get_metadata` | `get_metadata` |
+| `read_online_html` | `read` (plus `snapshot_id`) |
+| `download_paper` | `download` |
+| `export_citations` | `export` |
+| `link_references` | `link_references` |
+| `login` | `login` |
+| `session_status` | `status()`; `status(check_login=true)` checks again |
+| `operation_status` | `status(operation_id=…)` |
+| `operation_control(cancel/resume/show/recover)` | `status(cancel / user_done / show / recover=true)` |
+| `diagnostics` | `status(details=true)` or `cnki-mcp doctor` |
 
-## 任务与人工步骤
+## Output conventions
 
-- 网络工具默认在调用内等待约 40 秒（`CNKI_INLINE_WAIT_SECONDS`）。未完成时返回 `operation_id` 与进度，用 `operation_status(wait_seconds=55)` 继续等待，不要频繁短轮询。
-- `status=awaiting_user`：需要用户在弹出的浏览器窗口完成验证或登录。完成后任务**自动继续**，期间所有请求暂停；`on_verification=skip` 则跳过该资源。
-- 浏览器连接中断（`BROWSER_UNAVAILABLE`）是系统问题，不代表论文无权限；用 `operation_control(action=recover)` 后重试。
-- 中断或预算用尽的检索可 `continue`；已完成的详情与期刊不会重复请求。进程意外退出后状态显示 `interrupted`，同样可以继续。
+- A finished call returns its result object directly. An unfinished one returns `{"status":"running"|"awaiting_user","operation_id","next"}` (plus `stage` and `progress`, or the `message` for the user); `status(operation_id)` waits up to 50 s (max 55) and returns the result itself when done. A partial operation returns `{"status":"partial","operation_id","errors","result"}`, with `next` when a search can be continued.
+- Errors are `{"error":{"code","message","retryable?"}}` with `isError=true`.
+- Results are sent once, as JSON text, without HTML escaping. `CNKI_MCP_OUTPUT=structured` (structured content only) or `dual` (both) changes that for clients that want it.
+- Lists are columnar: `{"fields":[…],"rows":[[…],…]}`; missing cells are `""` and columns empty in every row are omitted. Default list rows (`view="compact"`) carry `record_ref`, `title`, `authors` (joined with "; "), `source`, `year`, `type`, `cited`, `downloads` and `tiers` (journal indexing observed). `view="titles"` gives ref, title, authors and year; `view="full"` gives record objects (as `get_metadata`) and, in `results`, the ranking `score` and `eligible`.
+- IDs are short: records `cr_`+16 hex (2.0 records `rec_…` remain valid), searches/operations `cs_`+16 hex, snapshots `cn_`+16 hex.
 
-## 证据边界
+## Login and status
 
-- 所有必要概念在初始通道和反馈通道中都保留；无语义规划时只按显式分隔符切分。
-- 相关性与来源质量分别评分；质量只能在相关文献之间排序，不能把不相关的高影响论文推到前面。
-- 期刊收录只采用可确认的标签文本；来源身份按现名、译名、曾用刊名核验并给出 `identity_basis`。
-- `read_online_html` 报告目录缺口与覆盖范围；没有完整性证据时 `complete_article` 为 null，不据长度推定全文完整。
-- 身份 `not_observed` 只表示未观察到；显示机构名称不代表机构订购全部资源。
+`login` opens CNKI's advanced-search page in the dedicated browser; when a personal or institutional login is already observed it returns at once (`via:"already_logged_in"`). Otherwise, or with `force=true`, the window comes to the front (`awaiting_user`) and the user signs in there; the login is detected in any CNKI tab and confirmed on a fresh search page (`via:"browser_login"`). `remote_access_url` opens an institutional remote-access entry (HTTPS, no credentials in the URL); after such a login call `status(operation_id, user_done=true)`. The result reports `personal` (`logged_in` / `not_observed`) and `institution` (the names shown, or `not_observed`).
+
+`status` without arguments reports `login` (the last observation, or `not_checked`), `data_dir` and any active operation of this client; `details=true` adds diagnostics (request interval, in-flight limit, workers, store counts, browser state, requests sent, verifications seen). `check_login=true` checks again on a background page. `cancel`, `user_done` and `show` act on the given (or the active) operation of this client; `recover=true` drops the browser connection so the next request relaunches Chrome.
+
+## Search
+
+`search` takes one of `query` (with optional `concept_groups`), `concept_groups` alone, or `expression`.
+
+- `query`: a research question or keywords (1–1000 characters), planned into concept groups — by the client's own model through MCP sampling when the client supports it, else lexically (explicit separators only). `concept_groups`: AND of synonym OR-groups (≤8 groups of ≤6 terms). Channels are subject, title and keywords; `mode="balanced"` (default) and `"broad"` add a keyword feedback round, `"precise"` does not.
+- `expression`: CNKI field search, leaf `{field, value, match}` (`match` `phrase` default or `exact`) or `{op: and|or|not, items}`. Fields: subject, title, keywords, abstract, authors, first_author, corresponding_author, institutions, source, doi, funds, fulltext, references, classification, subtitle, title_keywords_abstract. It runs as one channel, reads no detail pages by default (`options.metadata="basic"`) and collects 50 candidates.
+- `year_from`/`year_to`; `sort` relevance (default), date_desc, cited_desc, downloaded_desc; `limit` rows shown (default 10, max 50); `view`; `refresh=true` ignores the 10-minute cache.
+- `options`: `metadata` (`ranked` default: the detail pages of the best candidates; `all`; `basic`: none), `candidate_target` (default 300), `max_pages` per channel (default 5), `max_requests` (default 600), `timeout_seconds` (default 900), `on_verification` (`ask` default, `skip`).
+
+Output: `search_id`, the first selected rows, `candidates`, `eligible`, `selected`, `details_read`, `journals_with_quality`, `not_selected` (reasons with counts), `plan` (`method` and per channel its CNKI expression and weight), `coverage` (per channel `pages`, `rows`, `site_total`, `exhausted`, `error`), `next_offset`, and `cached:true` when served from cache. Coverage is bounded; it is never claimed exhaustive.
+
+`results(search_id, scope, offset, limit, view)` pages the stored entries without site access: `scope` selected (default, ≤100), eligible, candidates. `continue=true` resumes a partial or interrupted search from its checkpoint with `additional_requests` (default 200) more budget; finished phases cost nothing again.
+
+## Records and text
+
+`get_metadata` resolves `record_refs`, exact `titles` (up to 10 located with one search; same-title papers are reported as `IDENTITY_AMBIGUOUS`) and/or rows of a `search_id` (1–100) and reads their detail pages (30-day cache; `refresh=true` reads again). A record has `url`, `authors`, `institutions`, `source`, `year`, `date`, `volume`, `issue`, `pages`, `type`, `doi`, `abstract` (or the list `excerpt`), `keywords`, `funds`, `cited`, `downloads`, `quality` (with `quality=true`: `tiers`, `composite_impact`, `aggregate_impact`, `metric_year`, and `journal_page_title` when it differs from the source), and `detail_observed` (date) or `evidence:"search_list"`. `fields` projects; `local_only=true` forbids site access. Per-record failures are listed in the operation's `errors`.
+
+`read` opens the paper's HTML reader (`record_ref` or exact `title`) and returns 8,000 characters (`max_characters` ≤ 30,000) from `offset` (code points). The first page adds `title`, `sections` (columnar `level`, `title`, `offset`, `length`), `coverage` (`scope`, `missing_headings`, `non_text_elements`) and a note on non-text content; `section` reads one section. Output: `text`, `offset`, `next_offset`, `total_characters`, `snapshot_id`, `trial:true` when CNKI served only a preview, `complete_article:false` for a trial or a partial catalog. The reading is saved as a snapshot (60 days): `read(snapshot_id, offset)` continues without network, and a later `read` of the same paper reuses a complete snapshot (`reused:true`, `observed`) unless `refresh=true`.
+
+## Files
+
+`export`: `gbt7714` (default), `apa`, `mla`, `chicago`, `vancouver`, `bibtex`, `ris`, `endnote`, `csl_json`, `json`, `csv`, `markdown`, `custom` (`template` with `{authors}`, `{title}`, `{journal}`, `{year}`…). Stored records; exact `titles` not stored are located first. Output: `format`, `count`, `text` (or `path` with `filename`, saved under `data/exports/`, never overwritten), `missing_fields`.
+
+`link_references(text, lookup_missing)`: each 《full title》 (nesting allowed; code spans and existing Markdown links are skipped) is linked to its CNKI page when exactly one stored record matches. Output: `text` and `references` with `status` linked, matched_without_link, ambiguous or unresolved.
+
+`download`: the site's PDF (`format="auto"` prefers PDF) or CAJ, clicked in the dedicated browser; the transfer lands in `data/incoming/` and, after its signature (and the PDF end marker) is checked, is moved to `data/downloads/` (`subdirectory`, `filename`; never overwritten) with its SHA-256. The click is recorded first: when the outcome is unknown the next call reports `SIDE_EFFECT_UNCERTAIN` instead of clicking again, unless `retry=true`; a transfer that finishes late is picked up then. A verified earlier file is reused (`reused:true`). Output: `state`, `record_ref`, `title`, `format`, `path`, `bytes`, `sha256`.
+
+## Runtime limits
+
+Requests start at least `CNKI_REQUEST_INTERVAL_MS` (500) apart with at most `CNKI_MAX_INFLIGHT` (6) in flight; detail reads use `CNKI_WORKERS` (8) workers; rate limits and human steps widen the spacing. Network tools wait `CNKI_INLINE_WAIT_SECONDS` (40) inline. Stdio connections share one backend per data root; closing a connection cancels only its own operations; the backend exits after the last client.

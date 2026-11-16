@@ -39,6 +39,7 @@ type Op struct {
 	*opCore
 }
 type opCore struct {
+	owner   context.Context // the client session that started it
 	mu      sync.Mutex
 	rec     OpRecord
 	started time.Time
@@ -80,10 +81,10 @@ func (o *Op) charge() error {
 	defer o.mu.Unlock()
 	b := o.rec.Budget
 	if b.MaxRequests > 0 && o.rec.Requests >= b.MaxRequests {
-		return &Problem{Code: "BUDGET_EXHAUSTED", Message: "请求预算已用完；可用 operation_control continue 并增加预算", Retryable: true}
+		return &Problem{Code: "BUDGET_EXHAUSTED", Message: "请求预算已用完；可用 results(search_id, continue=true) 续跑", Retryable: true}
 	}
 	if b.TimeoutSeconds > 0 && o.activeLocked() > time.Duration(b.TimeoutSeconds)*time.Second {
-		return &Problem{Code: "BUDGET_EXHAUSTED", Message: "活动时间预算已用完；可用 operation_control continue 并增加预算", Retryable: true}
+		return &Problem{Code: "BUDGET_EXHAUSTED", Message: "活动时间预算已用完；可用 results(search_id, continue=true) 续跑", Retryable: true}
 	}
 	o.rec.Requests++
 	return nil
@@ -161,6 +162,7 @@ func (o *opCore) view() OpRecord {
 }
 
 type Jobs struct {
+	closed bool
 	mu     sync.Mutex
 	store  *Store
 	active map[string]*Op
@@ -170,10 +172,10 @@ func NewJobs(store *Store) *Jobs { return &Jobs{store: store, active: map[string
 
 // Start runs fn in the background. Operations share the site rate limiter, so
 // concurrency here never increases the request rate seen by CNKI.
-func (j *Jobs) Start(kind string, budget Budget, prior *OpRecord, fn func(*Op) (any, error)) *Op {
-	ctx, cancel := context.WithCancel(context.Background())
+func (j *Jobs) Start(owner context.Context, kind string, budget Budget, prior *OpRecord, fn func(*Op) (any, error)) *Op {
+	ctx, cancel := context.WithCancel(owner)
 	now := time.Now().UTC()
-	core := &opCore{store: j.store, started: time.Now(), cancel: cancel, done: make(chan struct{}), changed: make(chan struct{}), rec: OpRecord{ID: newID("op_"), Kind: kind, Status: "running", Stage: "starting", Budget: budget, Created: now, Updated: now}}
+	core := &opCore{owner: owner, store: j.store, started: time.Now(), cancel: cancel, done: make(chan struct{}), changed: make(chan struct{}), rec: OpRecord{ID: newID("cs_"), Kind: kind, Status: "running", Stage: "starting", Budget: budget, Created: now, Updated: now}}
 	if prior != nil {
 		core.rec.ID, core.rec.Created, core.rec.Requests = prior.ID, prior.Created, prior.Requests
 		core.base = time.Duration(prior.ActiveSeconds * float64(time.Second))
@@ -181,6 +183,13 @@ func (j *Jobs) Start(kind string, budget Budget, prior *OpRecord, fn func(*Op) (
 	}
 	op := &Op{ctx: ctx, opCore: core}
 	j.mu.Lock()
+	if j.closed {
+		j.mu.Unlock()
+		op.rec.Status = "cancelled"
+		cancel()
+		close(core.done)
+		return op
+	}
 	j.active[op.rec.ID] = op
 	j.mu.Unlock()
 	go func() {
@@ -270,8 +279,27 @@ func (j *Jobs) Active(id string) (*Op, bool) {
 	op, ok := j.active[id]
 	return op, ok
 }
+
+// forCaller returns an active operation of the calling client session; an
+// operation started by another client is never waited on or cancelled here.
+func (j *Jobs) forCaller(ctx context.Context, id string) (*Op, bool) {
+	owner := sessionOwner(ctx)
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if id != "" {
+		op, ok := j.active[id]
+		return op, ok && op.owner == owner
+	}
+	for _, op := range j.active {
+		if op.owner == owner {
+			return op, true
+		}
+	}
+	return nil, false
+}
+
 func (j *Jobs) Status(ctx context.Context, id string, wait time.Duration) (OpRecord, error) {
-	if op, ok := j.Active(id); ok {
+	if op, ok := j.forCaller(ctx, id); ok {
 		return j.Wait(ctx, op, wait), nil
 	}
 	if id == "" {
@@ -285,12 +313,12 @@ func (j *Jobs) Status(ctx context.Context, id string, wait time.Duration) (OpRec
 	out.Checkpoint = nil
 	if out.Status == "running" || out.Status == "awaiting_user" {
 		out.Status = "interrupted"
-		out.Message = "原进程已结束；检索可用 operation_control continue 继续"
+		out.Message = "原进程已结束；检索可用 results(search_id, continue=true) 继续"
 	}
 	return out, nil
 }
 func (j *Jobs) Cancel(ctx context.Context, id string) (OpRecord, error) {
-	op, ok := j.Active(id)
+	op, ok := j.forCaller(ctx, id)
 	if !ok {
 		return j.Status(ctx, id, 0)
 	}
@@ -301,8 +329,8 @@ func (j *Jobs) Cancel(ctx context.Context, id string) (OpRecord, error) {
 	}
 	return op.view(), nil
 }
-func (j *Jobs) Resume(id string) error {
-	op, ok := j.Active(id)
+func (j *Jobs) Resume(ctx context.Context, id string) error {
+	op, ok := j.forCaller(ctx, id)
 	if !ok {
 		return fail("OPERATION_NOT_RUNNING", "任务不在当前进程运行")
 	}
@@ -324,6 +352,7 @@ func (j *Jobs) Resume(id string) error {
 }
 func (j *Jobs) Close() {
 	j.mu.Lock()
+	j.closed = true
 	ops := make([]*Op, 0, len(j.active))
 	for _, op := range j.active {
 		ops = append(ops, op)

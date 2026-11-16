@@ -47,6 +47,7 @@ type Site struct {
 
 	identity   map[string]any
 	downloadMu sync.Mutex
+	requests   atomic.Int64 // site requests started since launch
 }
 type flight struct {
 	done chan struct{}
@@ -69,6 +70,7 @@ func (s *Site) do(op *Op, fn func() error) error {
 		return err
 	}
 	defer release()
+	s.requests.Add(1)
 	return fn()
 }
 
@@ -155,7 +157,7 @@ func responseProblem(r Response) *Problem {
 }
 
 // human hands the page to the person and waits until the challenge disappears
-// (or operation_control resume). Only one human step runs at a time; callers
+// (or status user_done). Only one human step runs at a time; callers
 // that raced into the same challenge simply retry after it is solved.
 func (s *Site) human(op *Op, seen uint64, reason string, show func() (*rod.Page, error)) error {
 	s.humanMu.Lock()
@@ -1002,17 +1004,26 @@ func (s *Site) identityAnywhere(op *Op) (pageGate, bool) {
 	}
 	return pageGate{}, false
 }
-func (s *Site) rememberIdentity(g pageGate) map[string]any {
-	result := map[string]any{"personal": "not_observed", "institution": "not_observed", "permission_scope": "unknown", "observed_at": time.Now().UTC(), "evidence_source": "kns_header"}
+func (s *Site) rememberIdentity(g pageGate, via string) map[string]any {
+	result := map[string]any{"personal": "not_observed", "institution": "not_observed", "observed_at": time.Now().UTC().Format(time.RFC3339), "via": via}
 	if g.Personal {
-		result["personal"] = "authenticated"
+		result["personal"] = "logged_in"
 	}
 	if len(g.Institutions) > 0 {
-		result["institution"] = "observed"
-		result["institution_evidence"] = g.Institutions
+		result["institution"] = g.Institutions
 	}
 	s.mu.Lock()
 	s.identity = result
 	s.mu.Unlock()
 	return result
+}
+
+// identityView is the last observed login, without a request.
+func (s *Site) identityView() any {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.identity == nil {
+		return "not_checked"
+	}
+	return s.identity
 }

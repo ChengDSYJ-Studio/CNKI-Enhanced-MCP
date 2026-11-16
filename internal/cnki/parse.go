@@ -106,7 +106,7 @@ func provisionalRef(p Paper) string {
 	if key == "" {
 		key = p.Title + "\x00" + p.locator()
 	}
-	return "rec_" + fingerprint(key)[:24]
+	return "cr_" + fingerprint(key)[:16]
 }
 
 type Grid struct {
